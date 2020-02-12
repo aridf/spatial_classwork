@@ -1,7 +1,6 @@
 library(readxl)
 library(tidyverse)
 library(stringr)
-library(ggplot2)
 library(naniar)
 
 lyofs_2015 <- read_csv('a3/data/warn_ohio_2015.csv')
@@ -35,6 +34,9 @@ df$date_layoff <- parse_date(df$date_layoff, format = '%m-%d-%Y')
 
 df$`city/county` <- str_replace_all(df$`city/county`, '\n', ' ') 
 df <- df %>% separate(`city/county`, into = c('city', 'county'), sep = '/')
+df$city <- tolower(df$city)
+df$county <- tolower(df$county)
+
 
 df$num_affected <- as.integer(df$num_affected)
 
@@ -43,4 +45,4 @@ df$union_rep <- case_when(
   TRUE ~ 1
 )
 
-write_csv(df, 'ohio_clean.csv')
+write_csv(df, 'a3/ohio_clean.csv')

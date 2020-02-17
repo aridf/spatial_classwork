@@ -55,8 +55,59 @@ ohio_no_sf <- st_as_sf(ohio_no, coords = c('long', 'lat'),
 
 tiff('a3/plot1.tiff', units = 'in', width = 5, height = 5, res = 1080)
 ggplot(data = ohio) +
-  geom_sf(aes(fill)) + 
+  geom_sf() + 
   geom_sf(data = ohio_no_sf, shape = 20, color='black', alpha = 0.25) +
   geom_sf(data = ohio_yes_sf, shape = 20, color='maroon', aes(size = num_affected),
           alpha = 0.75, show.legend = 'point') 
+dev.off()
+
+####
+## Combine w/ population data
+####
+
+#AJWBE001 = Total population
+#AJWBE002 = Male
+#AJWBE003-025 = Male age breakdown
+#AJWBE026 = Female
+#AJWBE027-049 = Male age breakdown
+
+#read data
+df_pop <- read_csv("a3/nhgis_county.csv")
+
+#filter to ohio
+df_pop <- df_pop %>% filter(STATE == 'Ohio')
+
+#get proportion sub-21
+df_pop$sub20 <- df_pop %>% 
+  select(AJWBE003, AJWBE004, AJWBE005,
+         AJWBE006, AJWBE007, AJWBE008,
+         AJWBE027, AJWBE028, AJWBE029,
+         AJWBE030, AJWBE031, AJWBE032) %>%
+  rowSums()
+
+df_pop$sub20_prop <- df_pop$sub20 / df_pop$AJWBE001
+
+#merge into sf object
+sub20_prop <- df_pop %>% select(COUNTYA, sub20_prop) %>%
+  mutate(COUNTYA = as.factor(COUNTYA)) %>%
+  set_names('COUNTY', 'sub20prop')
+  
+ohio <- merge(ohio, sub20_prop, all = T)
+
+#convert sub20 to categorical
+splits <- quantile(ohio$sub20prop)
+
+ohio$age_split <- cut(ohio$sub20prop, 3) 
+ohio <- ohio %>% mutate(age_split = factor(age_split, labels = c('< 26%', '26-30%', '> 31%')))
+
+tiff('a3/plot2.tiff', units = 'in', width = 5, height = 5, res = 1080)
+ggplot(data = ohio) +
+  geom_sf(aes(fill = age_split)) +
+  scale_fill_brewer() + 
+  geom_sf(data = ohio_no_sf, shape = 20, color='black', alpha = 0.25) +
+  geom_sf(data = ohio_yes_sf, shape = 20, color='maroon', aes(size = prop_affected),
+          alpha = 0.75, show.legend = 'point') +
+  labs(title = 'Mass Layoffs in Ohio, 2015 - 2019',
+       size = '% directly affected',
+       fill = '% under 20')
 dev.off()

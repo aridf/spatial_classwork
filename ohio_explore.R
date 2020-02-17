@@ -3,31 +3,39 @@ library(ggplot2)
 theme_set(theme_bw())
 library(sf)
 
+#read in cleaned data
 df <- read_csv('a3/ohio_clean.csv')
 
+#read in info on cities
 city_lookup <- read_csv('a3/city_populations.csv')
 city_lookup$asciiname <- tolower(city_lookup$asciiname)
 colnames(city_lookup) <- c('city', 'pop2019', 'location') 
 
 df <- df %>% arrange(desc(num_affected))
 
+#get number of affected workers by city
 df_city <- df %>% 
   group_by(city) %>%
   summarise(sum(num_affected, na.rm = T)) %>%
   set_names('city', 'num_affected') %>%
   arrange(desc(num_affected))
 
-df_county <- df %>% 
-  group_by(county) %>%
-  summarise(sum(num_affected, na.rm = T)) %>%
-  set_names('county', 'num_affected')
+#NOT RUN
+# get number of affected workers by county
+#df_county <- df %>% 
+#  group_by(county) %>%
+#  summarise(sum(num_affected, na.rm = T)) %>%
+#  set_names('county', 'num_affected')
 
+# merge city layoffs with city geo lookup
 df <- merge(city_lookup, df_city, all.x = T)
 
+#get proportion affected measure by city
 df$prop_affected <- df$num_affected / df$pop2019
 df <- df %>% arrange(desc(df$prop_affected))
 head(df %>% select(-location))
 
+#extract geographic information from the provided google url
 df <- df %>% 
   separate_rows(location, sep = '=|,') %>%
   group_by(city) %>%
@@ -37,10 +45,13 @@ df <- df %>%
   mutate(long = as.double(long), lat = as.double(lat)) %>%
   mutate(layoff = ifelse(is.na(prop_affected), 0, 1))
 
+#RUN ONCE
+#Get US county shapefile and save locally
 #f <- tempfile()
 #download.file("http://www2.census.gov/geo/tiger/GENZ2010/gz_2010_us_050_00_20m.zip", destfile = f)
 #unzip(f, exdir = ".")
 
+#get shapefile of ohio
 US <- st_read("gz_2010_us_050_00_20m.shp")
 ohio <- US[US$STATE == '39',]  
 
@@ -48,11 +59,13 @@ ohio <- US[US$STATE == '39',]
 ohio_yes <- df[which(df$layoff == 1),]
 ohio_no <- df[which(df$layoff == 0),]
 
+#convert points to sf format
 ohio_yes_sf <- st_as_sf(ohio_yes, coords = c('long', 'lat'),
                            crs = 4326, agr = "constant")
 ohio_no_sf <- st_as_sf(ohio_no, coords = c('long', 'lat'),
                        crs = 4326, agr = "constant")
 
+#save first plot
 tiff('a3/plot1.tiff', units = 'in', width = 5, height = 5, res = 1080)
 ggplot(data = ohio) +
   geom_sf() + 
@@ -94,12 +107,11 @@ sub20_prop <- df_pop %>% select(COUNTYA, sub20_prop) %>%
   
 ohio <- merge(ohio, sub20_prop, all = T)
 
-#convert sub20 to categorical
-splits <- quantile(ohio$sub20prop)
-
+#convert sub20 to low-med-high
 ohio$age_split <- cut(ohio$sub20prop, 3) 
 ohio <- ohio %>% mutate(age_split = factor(age_split, labels = c('< 26%', '26-30%', '> 31%')))
 
+#create second plot
 tiff('a3/plot2.tiff', units = 'in', width = 5, height = 5, res = 1080)
 ggplot(data = ohio) +
   geom_sf(aes(fill = age_split)) +

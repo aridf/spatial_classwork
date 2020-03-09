@@ -55,6 +55,19 @@ df <- df %>%
 US <- st_read("gz_2010_us_050_00_20m.shp")
 ohio <- US[US$STATE == '39',]  
 
+
+#################
+# Create sf dataset all ohio cities
+#################
+sf_full <- st_as_sf(df, coords = c('long', 'lat'),
+                   crs = 4326, agr = "constant")
+#save csv for other analyses
+write_sf(sf_full, 'A3/cities_geo_layoffs.shp')
+
+
+#################
+# Create data for different dots in the plots below 
+#################
 #split data into laid off and non-laid off cities
 ohio_yes <- df[which(df$layoff == 1),]
 ohio_no <- df[which(df$layoff == 0),]
@@ -64,6 +77,8 @@ ohio_yes_sf <- st_as_sf(ohio_yes, coords = c('long', 'lat'),
                            crs = 4326, agr = "constant")
 ohio_no_sf <- st_as_sf(ohio_no, coords = c('long', 'lat'),
                        crs = 4326, agr = "constant")
+####################
+
 
 #save first plot
 tiff('a3/plot1.tiff', units = 'in', width = 5, height = 5, res = 1080)
@@ -117,7 +132,7 @@ ggplot(data = ohio) +
   geom_sf(aes(fill = age_split)) +
   scale_fill_brewer() + 
   geom_sf(data = ohio_no_sf, shape = 20, color='black', alpha = 0.25) +
-  geom_sf(data = ohio_yes_sf, shape = 20, color='maroon', aes(size = prop_affected),
+  geom_sf(data = ohio_yes_sf, shape = 20, color='maroon', aes(size = num_affected),
           alpha = 0.75, show.legend = 'point') +
   labs(title = 'Mass Layoffs in Ohio, 2015 - 2019',
        size = '% directly affected',
